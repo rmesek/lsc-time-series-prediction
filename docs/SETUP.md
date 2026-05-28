@@ -28,8 +28,11 @@ conda config --add pkgs_dirs ${SCRATCH}/.conda/pkgs
 conda create -n ray-cluster python=3.12 jupyter ipykernel -c conda-forge -y
 conda activate ray-cluster
 
-# Install Ray (without PyTorch for now)
-pip install "ray[default]" pandas numpy
+# Install PyTorch with CUDA support (cu121 based on HPC's CUDA version)
+pip install torch --index-url https://download.pytorch.org/whl/cu121
+
+# Install Ray with Train/Tune components, PyTorch Forecasting, and its dependencies
+pip install "ray[default,train,tune]" pytorch-forecasting pandas numpy matplotlib
 
 # Register the kernel for Jupyter
 python -m ipykernel install --user --name ray-cluster --display-name "Python 3.12 (Ray Cluster)"
