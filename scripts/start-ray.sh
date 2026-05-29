@@ -5,7 +5,7 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --gres=gpu:2
 #SBATCH --mem=32G
-#SBATCH --time=01:00:00
+#SBATCH --time=02:00:00
 #SBATCH --partition=plgrid-gpu-v100
 #SBATCH --account=plglscclass26-gpu
 
@@ -16,6 +16,29 @@ module load miniconda3
 eval "$(conda shell.bash hook)"
 conda activate ray-cluster
 
+# Helper function to find a truly available port safely
+get_free_port() {
+    local PYTHON_CMD
+    if command -v python >/dev/null 2>&1; then
+        PYTHON_CMD="python"
+    elif command -v python3 >/dev/null 2>&1; then
+        PYTHON_CMD="python3"
+    else
+        # Fallback if Python is completely unavailable: use shuf but actively verify it's free
+        local temp_port
+        while true; do
+            temp_port=$(shuf -i 10000-65500 -n 1)
+            # Use 'ss' to check listening ports. If grep finds nothing, the port is free.
+            if ! ss -tuln | grep -q ":$temp_port "; then
+                echo "$temp_port"
+                return
+            fi
+        done
+    fi
+    # Use Python's socket library to ask the OS for a free port
+    $PYTHON_CMD -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()'
+}
+
 # 2. Path Variables (We must keep Ray sockets in local /tmp to avoid path length limits)
 export RAY_TMP_DIR="/tmp/ray-${USER}-${SLURM_JOB_ID}"
 mkdir -p "$RAY_TMP_DIR"
@@ -25,7 +48,9 @@ nodes=$(scontrol show hostnames "$SLURM_JOB_NODELIST")
 nodes_array=($nodes)
 head_node=${nodes_array[0]}
 head_node_ip=$(srun --nodes=1 --ntasks=1 -w "$head_node" hostname --ip-address | awk '{print $1}')
-port=$(shuf -i 10000-65500 -n 1)
+
+# Safely allocate a guaranteed free port
+port=$(get_free_port)
 export ip_head=$head_node_ip:$port
 
 # 4. Start Ray Head
@@ -61,7 +86,8 @@ for node_i in "${nodes_array[@]:1}"; do
 done
 
 # 6. Start Jupyter Server on the Head Node
-jupyter_port=$(shuf -i 8000-9999 -n 1)
+# Ensure Jupyter also gets a guaranteed free port
+jupyter_port=$(get_free_port)
 jupyter_url="http://${head_node_ip}:${jupyter_port}/?token=ray-course"
 
 # Save the connection URL to a file in the current directory
