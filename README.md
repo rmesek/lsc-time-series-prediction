@@ -1,10 +1,9 @@
 # Time Series Prediction with PyTorch
 Distributed time series forecasting using PyTorch Forecasting and Ray on the Ares HPC cluster. 
 
-## Authors
+## Setup
 
-* Joanna Konieczny
-* Robert Mesek
+See [docs/SETUP.md](docs/SETUP.md) for environment installation, Ray cluster configuration, and execution instructions.
 
 ## Theoretical Design and Implementation
 
